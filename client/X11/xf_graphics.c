@@ -241,7 +241,7 @@ static BOOL xf_Pointer_Set(rdpContext* context,
 
 	/* in RemoteApp mode, window can be null if none has had focus */
 
-	if (xfc->window)
+	if (xfc->window && !xfc->context.settings->DumbMouse)
 		XDefineCursor(xfc->display, xfc->window->handle, xfc->pointer->cursor);
 
 	xf_unlock_x11(xfc, FALSE);

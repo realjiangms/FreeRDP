@@ -172,6 +172,7 @@ static COMMAND_LINE_ARGUMENT_A args[] =
 	{ "print-reconnect-cookie", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL, "Print base64 reconnect cookie after connecting" },
 	{ "heartbeat", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL, "Support heartbeat PDUs" },
 	{ "multitransport", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL, "Support multitransport protocol" },
+	{ "dumbMouse", COMMAND_LINE_VALUE_BOOL, NULL, BoolValueFalse, NULL, -1, NULL, "Mouse for full screen game" },
 	{ "assistance", COMMAND_LINE_VALUE_REQUIRED, "<password>", NULL, NULL, -1, NULL, "Remote assistance password" },
 	{ "encryption-methods", COMMAND_LINE_VALUE_REQUIRED, "<40,56,128,FIPS>", NULL, NULL, -1, NULL, "RDP standard security encryption methods" },
 	{ "from-stdin", COMMAND_LINE_VALUE_FLAG, NULL, NULL, NULL, -1, NULL, "Read credentials from stdin, do not use defaults." },
@@ -953,6 +954,11 @@ static int freerdp_client_command_line_post_filter(void* context,
 		settings->MultitransportFlags = (TRANSPORT_TYPE_UDP_FECR |
 		                                 TRANSPORT_TYPE_UDP_FECL | TRANSPORT_TYPE_UDP_PREFERRED);
 	}
+	CommandLineSwitchCase(arg, "dumbMouse")
+	{
+		settings->DumbMouse = TRUE;
+	}
+
 	CommandLineSwitchEnd(arg)
 	return status ? 1 : 0;
 }

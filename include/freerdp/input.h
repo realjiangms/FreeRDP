@@ -44,6 +44,10 @@ typedef struct rdp_input rdpInput;
 #define PTR_FLAGS_BUTTON2		0x2000 /* right */
 #define PTR_FLAGS_BUTTON3		0x4000 /* middle */
 #define WheelRotationMask		0x01FF
+// Additional Move/Button flag
+#define PTR_FLAGS_RELATIVE		0x0001 /* relative move */
+#define PTR_FLAGS_RELATIVE_NEGATIVE_X		0x0002
+#define PTR_FLAGS_RELATIVE_NEGATIVE_Y		0x0004
 
 /* Extended Pointer Flags */
 #define PTR_XFLAGS_DOWN			0x8000

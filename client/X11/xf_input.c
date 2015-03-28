@@ -533,7 +533,7 @@ void xf_input_show_cursor(xfContext* xfc)
 
 	if (xfc->cursorHidden)
 	{
-		if (xfc->window)
+		if (xfc->window && !xfc->context.settings->DumbMouse)
 		{
 			if (!xfc->pointer)
 				XUndefineCursor(xfc->display, xfc->window->handle);

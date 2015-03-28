@@ -282,8 +282,59 @@ BOOL xf_generic_MotionNotify(xfContext* xfc, int x, int y, int state,
 		                      x, y, &x, &y, &childWindow);
 	}
 
-	xf_event_adjust_coordinates(xfc, &x, &y);
-	input->MouseEvent(input, PTR_FLAGS_MOVE, x, y);
+    if (xfc->context.settings->DumbMouse && xfc->focused)
+    {
+        UINT16 flags = PTR_FLAGS_MOVE;
+		int centerX = xfc->scaledWidth / 2;
+		int centerY = xfc->scaledHeight / 2;
+        static int lastx = -1, lasty = -1;
+        int dx,dy;
+
+        flags |= PTR_FLAGS_RELATIVE;
+        if (lastx < 0 || lasty < 0)
+        {
+            /* force no movement for first event */
+            dx = 0;
+            dy = 0;
+        }
+        else
+        {
+            if (x < lastx)
+            {
+                dx = lastx - x;
+                flags |= PTR_FLAGS_RELATIVE_NEGATIVE_X;
+            }
+            else
+                dx = x - lastx;
+            if (y < lasty)
+            {
+                dy = lasty - y;
+                flags |= PTR_FLAGS_RELATIVE_NEGATIVE_Y;
+            }
+            else
+                dy = y - lasty;
+			
+			dx = xfc->context.settings->DesktopWidth * dx / xfc->scaledWidth;
+			dy = xfc->context.settings->DesktopHeight * dy / xfc->scaledHeight;
+        }
+        lastx = x;
+        lasty = y;
+
+        if (x == centerX && y == centerY)
+        {
+            return TRUE; /* Ignore event for restore */
+        }
+        if (dx > 0 || dy > 0)
+        {
+            input->MouseEvent(input, flags, dx, dy);
+        }
+        XWarpPointer(xfc->display, None, xfc->window->handle, 0, 0, 0, 0, centerX, centerY);
+    }
+    else
+    {
+        xf_event_adjust_coordinates(xfc, &x, &y);
+        input->MouseEvent(input, PTR_FLAGS_MOVE, x, y);
+    }
 
 	if (xfc->fullscreen && !app)
 	{
@@ -391,6 +442,13 @@ BOOL xf_generic_ButtonPress(xfContext* xfc, int x, int y, int button,
 
 			xf_event_adjust_coordinates(xfc, &x, &y);
 
+            if (xfc->context.settings->DumbMouse)
+            {
+                // Dumb mouse mode, button don't move mouse
+                x = y = 0;
+                flags |= PTR_FLAGS_RELATIVE;
+            }
+
 			if (extended)
 				input->ExtendedMouseEvent(input, flags, x, y);
 			else
@@ -466,6 +524,13 @@ BOOL xf_generic_ButtonRelease(xfContext* xfc, int x, int y, int button,
 
 		xf_event_adjust_coordinates(xfc, &x, &y);
 
+        if (xfc->context.settings->DumbMouse)
+        {
+            // Dumb mouse mode, button don't move mouse
+            x = y = 0;
+            flags |= PTR_FLAGS_RELATIVE;
+        }
+
 		if (extended)
 			input->ExtendedMouseEvent(input, flags, x, y);
 		else
@@ -521,8 +586,15 @@ static BOOL xf_event_FocusIn(xfContext* xfc, XEvent* event, BOOL app)
 	xfc->focused = TRUE;
 
 	if (xfc->mouse_active && !app)
+    {
 		XGrabKeyboard(xfc->display, xfc->window->handle, TRUE, GrabModeAsync,
 		              GrabModeAsync, CurrentTime);
+        if (xfc->context.settings->DumbMouse)
+        {
+			XGrabPointer(xfc->display, xfc->window->handle, TRUE, 0, GrabModeAsync, GrabModeAsync, xfc->window->handle, None, CurrentTime);
+            xfc->context.graphics->Pointer_Prototype->SetNull((rdpContext*)xfc);
+        }
+    }
 
 	if (app)
 	{
@@ -549,7 +621,14 @@ static BOOL xf_event_FocusOut(xfContext* xfc, XEvent* event, BOOL app)
 	xfc->focused = FALSE;
 
 	if (event->xfocus.mode == NotifyWhileGrabbed)
+    {
 		XUngrabKeyboard(xfc->display, CurrentTime);
+        if (xfc->context.settings->DumbMouse)
+		{
+			xfc->context.graphics->Pointer_Prototype->SetDefault((rdpContext*)xfc);
+			XUngrabPointer(xfc->display, CurrentTime);
+		}
+    }
 
 	xf_keyboard_release_all_keypress(xfc);
 	xf_keyboard_clear(xfc);
@@ -611,8 +690,14 @@ static BOOL xf_event_EnterNotify(xfContext* xfc, XEvent* event, BOOL app)
 			               CurrentTime);
 
 		if (xfc->focused)
+        {
 			XGrabKeyboard(xfc->display, xfc->window->handle, TRUE, GrabModeAsync,
 			              GrabModeAsync, CurrentTime);
+            if (xfc->context.settings->DumbMouse)
+            {
+                xfc->context.graphics->Pointer_Prototype->SetNull((rdpContext*)xfc);
+            }
+        }
 	}
 	else
 	{
@@ -636,6 +721,8 @@ static BOOL xf_event_LeaveNotify(xfContext* xfc, XEvent* event, BOOL app)
 	{
 		xfc->mouse_active = FALSE;
 		XUngrabKeyboard(xfc->display, CurrentTime);
+        if (xfc->context.settings->DumbMouse)
+            xfc->context.graphics->Pointer_Prototype->SetDefault((rdpContext*)xfc);
 	}
 
 	return TRUE;

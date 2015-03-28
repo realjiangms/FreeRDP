@@ -1421,6 +1421,7 @@ struct rdp_settings
 	ALIGN64 int num_extensions; /*  */
 	ALIGN64 struct rdp_ext_set extensions[16]; /*  */
 
+	ALIGN64 BOOL DumbMouse; /* Send relative mouse event */
 	ALIGN64 BYTE*
 	SettingsModified; /* byte array marking fields that have been modified from their default value */
 };

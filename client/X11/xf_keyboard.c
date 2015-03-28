@@ -486,6 +486,17 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 		}
 	}
 
+	if (!xfc->fullscreen && xfc->context.settings->DumbMouse)
+	{
+		if (((keysym == XK_Left) || (keysym == XK_Right)) && (mod.Ctrl && mod.Alt))
+		{
+			/* Ungrab */
+			XUngrabPointer(xfc->display, CurrentTime);
+			XSetInputFocus(xfc->display, None, RevertToNone, CurrentTime);
+			return TRUE;
+		}
+	}
+
 #if 0 /* set to 1 to enable multi touch gesture simulation via keyboard */
 #ifdef WITH_XRENDER
 
