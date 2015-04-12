@@ -100,7 +100,33 @@ static int bio_rdp_tls_write(BIO* bio, const char* buf, int size)
 				break;
 
 			case SSL_ERROR_SYSCALL:
-				BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+				/* 
+				 * From manual from SSL_get_error: Some I/O error occurred.  
+				 * The OpenSSL error queue may contain more information on the error.  
+				 * If the error queue is empty (i.e. ERR_get_error() returns 0), ret
+				 * can be used to find out more about the error: If ret == 0, an EOF 
+				 * was observed that violates the protocol.  If ret == -1, the 
+				 * underlying BIO reported an I/O error (for socket I/O on Unix 
+				 * systems, consult errno for details).
+				 */
+				if (ERR_get_error() == 0 && status < 0)
+				{
+					error = WSAGetLastError();
+					if ((error == WSAEWOULDBLOCK) || (error == WSAEINTR) ||
+							(error == WSAEINPROGRESS) || (error == WSAEALREADY))
+					{
+						BIO_set_flags(bio, (BIO_FLAGS_WRITE | BIO_FLAGS_SHOULD_RETRY));
+					}
+					else
+					{
+						BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+					}
+				}
+				else
+				{
+					/* Either SSL error queue is not empty, or we got EOF */
+					BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+				}
 				break;
 
 			case SSL_ERROR_SSL:
@@ -167,7 +193,33 @@ static int bio_rdp_tls_read(BIO* bio, char* buf, int size)
 				break;
 
 			case SSL_ERROR_SYSCALL:
-				BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+				/* 
+				 * From manual from SSL_get_error: Some I/O error occurred.  
+				 * The OpenSSL error queue may contain more information on the error.  
+				 * If the error queue is empty (i.e. ERR_get_error() returns 0), ret
+				 * can be used to find out more about the error: If ret == 0, an EOF 
+				 * was observed that violates the protocol.  If ret == -1, the 
+				 * underlying BIO reported an I/O error (for socket I/O on Unix 
+				 * systems, consult errno for details).
+				 */
+				if (ERR_get_error() == 0 && status < 0)
+				{
+					error = WSAGetLastError();
+					if ((error == WSAEWOULDBLOCK) || (error == WSAEINTR) ||
+							(error == WSAEINPROGRESS) || (error == WSAEALREADY))
+					{
+						BIO_set_flags(bio, (BIO_FLAGS_READ | BIO_FLAGS_SHOULD_RETRY));
+					}
+					else
+					{
+						BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+					}
+				}
+				else
+				{
+					/* Either SSL error queue is not empty, or we got EOF */
+					BIO_clear_flags(bio, BIO_FLAGS_SHOULD_RETRY);
+				}
 				break;
 		}
 	}
