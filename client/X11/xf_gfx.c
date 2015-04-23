@@ -85,6 +85,8 @@ static int xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 	surfaceRect.right = surfaceX + surface->width;
 	surfaceRect.bottom = surfaceY + surface->height;
 
+	xf_lock_x11(xfc, TRUE);
+
 	XSetClipMask(xfc->display, xfc->gc, None);
 	XSetFunction(xfc->display, xfc->gc, GXcopy);
 	XSetFillStyle(xfc->display, xfc->gc, FillSolid);
@@ -128,6 +130,8 @@ static int xf_OutputUpdate(xfContext* xfc, xfGfxSurface* surface)
 
 	XSetClipMask(xfc->display, xfc->gc, None);
 	XSync(xfc->display, False);
+
+	xf_unlock_x11(xfc, TRUE);
 
 	return 1;
 }
