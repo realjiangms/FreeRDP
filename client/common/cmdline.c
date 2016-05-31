@@ -38,6 +38,7 @@
 
 #include <freerdp/client/cmdline.h>
 #include <freerdp/version.h>
+#include <freerdp/constants.h>
 
 #include "compatibility.h"
 
@@ -2292,6 +2293,7 @@ int freerdp_client_settings_parse_command_line_arguments(rdpSettings* settings,
 			else if (strcmp(arg->Value, "jpeg") == 0)
 			{
 				settings->JpegCodec = TRUE;
+				settings->JpegCodecId = settings->BitmapCacheV3CodecId = RDP_CODEC_ID_JPEG;
 
 				if (settings->JpegQuality == 0)
 					settings->JpegQuality = 75;

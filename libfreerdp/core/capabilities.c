@@ -538,7 +538,7 @@ static BOOL rdp_read_order_capability_set(wStream* s, UINT16 length,
 			settings->OrderSupport[i] = FALSE;
 	}
 
-	if (orderFlags & ORDER_FLAGS_EXTRA_SUPPORT)
+	if ((orderFlags & ORDER_FLAGS_EXTRA_SUPPORT) || (orderFlags & NEGOTIATE_ORDER_SUPPORT))
 	{
 		if (orderSupportExFlags & CACHE_BITMAP_V3_SUPPORT)
 			BitmapCacheV3Enabled = TRUE;
