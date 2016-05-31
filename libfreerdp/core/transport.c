@@ -717,6 +717,7 @@ int transport_write(rdpTransport* transport, wStream* s)
 
 		if (transport->blocking || transport->settings->WaitForOutputBufferFlush)
 		{
+			UINT64 deadline = GetTickCount64() + 5000;
 			while (BIO_write_blocked(transport->frontBio))
 			{
 				if (BIO_wait_write(transport->frontBio, 100) < 0)
@@ -729,6 +730,13 @@ int transport_write(rdpTransport* transport, wStream* s)
 				if (BIO_flush(transport->frontBio) < 1)
 				{
 					WLog_ERR(TAG, "error when flushing outputBuffer");
+					status = -1;
+					goto out_cleanup;
+				}
+
+				if (GetTickCount64() > deadline)
+				{
+					WLog_ERR(TAG, "Out of retry timeout for flushing outputBuffer");
 					status = -1;
 					goto out_cleanup;
 				}
