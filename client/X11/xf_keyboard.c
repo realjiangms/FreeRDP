@@ -453,6 +453,34 @@ int xk_keyboard_get_modifier_keys(xfContext* xfc, XF_MODIFIER_KEYS* mod)
 	return 0;
 }
 
+static volatile xf_keyboard_disconnect_guard_timeout_ms = 3000;
+static DWORD xf_keyboard_disconnect_guard(LPVOID lpThreadParameter)
+{
+	/* Ensure we exit after 3 seconds */
+	/* If everything OK, the guard thread will be automatically stopped */
+	Sleep(xf_keyboard_disconnect_guard_timeout_ms);
+	printf("Force exit\n");
+	exit(0);
+}
+static inline void xf_keyboard_disconnect(xfContext* xfc)
+{
+	HANDLE thread = NULL;
+	xf_keyboard_release_all_keypress(xfc);
+	freerdp_abort_connect(xfc->context.instance);
+	thread = CreateThread(NULL, 0,
+	                      (LPTHREAD_START_ROUTINE)xf_keyboard_disconnect_guard,
+	                      (void*)xfc, 0, NULL);
+
+	if (thread)
+	{
+		/* Detach */
+		CloseHandle(thread);
+	}
+
+	/* Pause for a while to drain pending requests */
+	Sleep(100);
+}
+
 BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 {
 	XF_MODIFIER_KEYS mod = { 0 };
@@ -465,12 +493,12 @@ BOOL xf_keyboard_handle_special_keys(xfContext* xfc, KeySym keysym)
 
 	if (!xfc->remote_app && xfc->fullscreen_toggle)
 	{
-		if (keysym == XK_Return)
+		if (keysym == XK_Escape)
 		{
-			if (mod.Ctrl && mod.Alt)
+			if (mod.LeftCtrl && mod.LeftShift)
 			{
-				/* Ctrl-Alt-Enter: toggle full screen */
-				xf_toggle_fullscreen(xfc);
+				/* Ctrl-Shift-Escap: toggle full screen and exit */
+				xf_keyboard_disconnect(xfc);
 				return TRUE;
 			}
 		}

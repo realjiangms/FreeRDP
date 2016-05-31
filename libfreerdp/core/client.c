@@ -492,7 +492,7 @@ UINT freerdp_channels_disconnect(rdpChannels* channels, freerdp* instance)
 		}
 
 		if (getChannelError(instance->context) != CHANNEL_RC_OK)
-			goto fail;
+			continue; // Just continue because we need to ensure that all channels are cleaned up
 
 		pChannelOpenData = &channels->openDataList[index];
 		name = (char*) malloc(9);
