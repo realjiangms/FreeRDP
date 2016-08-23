@@ -33,6 +33,20 @@
 #define TAG FREERDP_TAG("codec")
 
 /**
+ * Common subroutine for reset width/height for h264 context
+ */
+static BOOL default_reset(H264_CONTEXT* h264, UINT32 width, UINT32 height)
+{
+	if (!h264)
+		return FALSE;
+
+	h264->width = width;
+	h264->height = height;
+
+	return TRUE;
+}
+
+/**
  * Dummy subsystem
  */
 
@@ -56,6 +70,7 @@ static H264_CONTEXT_SUBSYSTEM g_Subsystem_dummy =
 	"dummy",
 	dummy_init,
 	dummy_uninit,
+	default_reset,
 	dummy_decompress
 };
 
@@ -676,6 +691,7 @@ static H264_CONTEXT_SUBSYSTEM g_Subsystem_MF =
 	"MediaFoundation",
 	mf_init,
 	mf_uninit,
+	default_reset,
 	mf_decompress,
 	mf_compress
 };
@@ -776,6 +792,7 @@ static H264_CONTEXT_SUBSYSTEM g_Subsystem_x264 =
 	"x264",
 	x264_init,
 	x264_uninit,
+	default_reset,
 	x264_decompress,
 	x264_compress
 };
@@ -1082,6 +1099,8 @@ static void openh264_uninit(H264_CONTEXT* h264)
 {
 	UINT32 x;
 	H264_CONTEXT_OPENH264* sysContexts = (H264_CONTEXT_OPENH264*) h264->pSystemData;
+	UINT32* iStride;
+	BYTE** pYUVData;
 
 	if (sysContexts)
 	{
@@ -1105,6 +1124,24 @@ static void openh264_uninit(H264_CONTEXT* h264)
 		}
 		free(h264->pSystemData);
 		h264->pSystemData = NULL;
+	}
+
+	if (h264->Compressor)
+	{
+		iStride =  h264->iStride[0];
+		pYUVData = h264->pYUVData[0];
+
+		free(pYUVData[0]);
+		pYUVData[0] = NULL;
+		iStride[0] = 0;
+
+		free(pYUVData[1]);
+		pYUVData[1] = NULL;
+		iStride[1] = 0;
+
+		free(pYUVData[2]);
+		pYUVData[2] = NULL;
+		iStride[2] = 0;
 	}
 }
 
@@ -1228,11 +1265,80 @@ EXCEPTION:
 	return FALSE;
 }
 
+static BOOL openh264_reset(H264_CONTEXT* h264, UINT32 width, UINT32 height)
+{
+	int nWidth, nHeight;
+	UINT32* iStride;
+	BYTE** pYUVData;
+	BOOL changed;
+
+	if (!h264)
+		return FALSE;
+
+	if (h264->width == width && h264->height == height)
+	{
+		changed = FALSE;
+	}
+	else
+	{
+		h264->width = width;
+		h264->height = height;
+		changed = TRUE;
+	}
+
+	/* Nothing more to do for decompressor */
+	if (!h264->Compressor)
+		return TRUE;
+
+	/* Nothing more to do if width/height has not been changed */
+	if (!changed)
+		return TRUE;
+
+	nWidth = (h264->width + 1) & ~1;
+	nHeight = (h264->height + 1) & ~1;
+
+	/**
+	 * TODO: Currently we only allocate space for plane 0. We might
+	 * need to handle plane 1 if we need to support avc444
+	 */
+	iStride =  h264->iStride[0];
+	pYUVData = h264->pYUVData[0];
+
+	free(pYUVData[0]);
+	pYUVData[0] = NULL;
+	if (!(pYUVData[0] = (BYTE*) malloc(nWidth * nHeight)))
+		return -1;
+	iStride[0] = nWidth;
+
+	free(pYUVData[1]);
+	pYUVData[1] = NULL;
+	if (!(pYUVData[1] = (BYTE*) malloc(nWidth * nHeight)))
+		goto error_1;
+	iStride[1] = nWidth / 2;
+
+	free(pYUVData[2]);
+	pYUVData[2] = NULL;
+	if (!(pYUVData[2] = (BYTE*) malloc(nWidth * nHeight)))
+		goto error_2;
+	iStride[2] = nWidth / 2;
+
+	return TRUE;
+error_2:
+	free(pYUVData[1]);
+	pYUVData[1] = NULL;
+error_1:
+	free(pYUVData[0]);
+	pYUVData[0] = NULL;
+
+	return FALSE;
+}
+
 static H264_CONTEXT_SUBSYSTEM g_Subsystem_OpenH264 =
 {
 	"OpenH264",
 	openh264_init,
 	openh264_uninit,
+	openh264_reset,
 	openh264_decompress,
 	openh264_compress
 };
@@ -1532,9 +1638,7 @@ INT32 avc420_compress(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
 		      UINT32 nSrcStep, UINT32 nSrcWidth, UINT32 nSrcHeight,
 		      BYTE** ppDstData, UINT32* pDstSize)
 {
-	int status = -1;
 	prim_size_t roi;
-	int nWidth, nHeight;
 	primitives_t* prims = primitives_get();
 	UINT32* iStride;
 	BYTE** pYUVData;
@@ -1548,38 +1652,15 @@ INT32 avc420_compress(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
 	iStride =  h264->iStride[0];
 	pYUVData = h264->pYUVData[0];
 
-	nWidth = (nSrcWidth + 1) & ~1;
-	nHeight = (nSrcHeight + 1) & ~1;
-
-	if (!(pYUVData[0] = (BYTE*) malloc(nWidth * nHeight)))
+	if (!pYUVData[0] || !pYUVData[1] || !pYUVData[2])
 		return -1;
-	iStride[0] = nWidth;
 
-	if (!(pYUVData[1] = (BYTE*) malloc(nWidth * nHeight)))
-		goto error_1;
-	iStride[1] = nWidth / 2;
-
-	if (!(pYUVData[2] = (BYTE*) malloc(nWidth * nHeight)))
-		goto error_2;
-	iStride[2] = nWidth / 2;
-
-	roi.width = nSrcWidth;
-	roi.height = nSrcHeight;
+	roi.width = h264->width;
+	roi.height = h264->height;
 
 	prims->RGBToYUV420_8u_P3AC4R(pSrcData, nSrcStep, pYUVData, iStride, &roi);
 
-	status = h264->subsystem->Compress(h264, ppDstData, pDstSize, 0);
-
-	free(pYUVData[2]);
-	pYUVData[2] = NULL;
-error_2:
-	free(pYUVData[1]);
-	pYUVData[1] = NULL;
-error_1:
-	free(pYUVData[0]);
-	pYUVData[0] = NULL;
-
-	return status;
+	return h264->subsystem->Compress(h264, ppDstData, pDstSize, 0);
 }
 
 INT32 avc444_compress(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
@@ -1885,10 +1966,7 @@ BOOL h264_context_reset(H264_CONTEXT* h264, UINT32 width, UINT32 height)
 	if (!h264)
 		return FALSE;
 
-	h264->width = width;
-	h264->height = height;
-
-	return TRUE;
+	return h264->subsystem->Reset(h264, width, height);
 }
 
 H264_CONTEXT* h264_context_new(BOOL Compressor)

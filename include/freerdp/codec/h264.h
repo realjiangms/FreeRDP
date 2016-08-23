@@ -33,12 +33,15 @@ typedef int (*pfnH264SubsystemDecompress)(H264_CONTEXT* h264, BYTE* pSrcData,
 					  UINT32 SrcSize, UINT32 plane);
 typedef int (*pfnH264SubsystemCompress)(H264_CONTEXT* h264, BYTE** ppDstData,
 					UINT32* pDstSize, UINT32 plane);
+typedef BOOL (*pfnH264SubsystemReset)(H264_CONTEXT* h264, UINT32 width, 
+					UINT32 height);
 
 struct _H264_CONTEXT_SUBSYSTEM
 {
 	const char* name;
 	pfnH264SubsystemInit Init;
 	pfnH264SubsystemUninit Uninit;
+	pfnH264SubsystemReset Reset;
 	pfnH264SubsystemDecompress Decompress;
 	pfnH264SubsystemCompress Compress;
 };
