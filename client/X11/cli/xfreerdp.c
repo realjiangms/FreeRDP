@@ -46,6 +46,7 @@ int main(int argc, char* argv[])
 	clientEntryPoints.Size = sizeof(RDP_CLIENT_ENTRY_POINTS);
 	clientEntryPoints.Version = RDP_CLIENT_INTERFACE_VERSION;
 
+	h264_codec_ext_try_load_entry("libFreeRDPVideoCodec.so", FALSE);
 	RdpClientEntry(&clientEntryPoints);
 
 	context = freerdp_client_context_new(&clientEntryPoints);

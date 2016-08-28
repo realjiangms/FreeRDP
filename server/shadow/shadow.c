@@ -45,6 +45,7 @@ int main(int argc, char** argv)
 	rdpSettings* settings;
 	rdpShadowServer* server;
 
+	h264_codec_ext_try_load_entry("libFreeRDPVideoCodec.so", TRUE);
 	shadow_subsystem_set_entry_builtin(NULL);
 
 	server = shadow_server_new();

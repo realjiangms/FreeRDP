@@ -20,6 +20,7 @@
 #ifndef FREERDP_CODEC_H264_H
 #define FREERDP_CODEC_H264_H
 
+#include <dlfcn.h>
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 #include <freerdp/channels/rdpgfx.h>
@@ -109,6 +110,77 @@ FREERDP_API BOOL h264_context_reset(H264_CONTEXT* h264, UINT32 width, UINT32 hei
 
 FREERDP_API H264_CONTEXT* h264_context_new(BOOL Compressor);
 FREERDP_API void h264_context_free(H264_CONTEXT* h264);
+
+/* Define external codec */
+typedef INT32 (*pfnFreeRDPCodecAvc420Compress)(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
+		UINT32 nSrcStep, UINT32 nSrcWidth, UINT32 nSrcHeight,
+		BYTE** ppDstData, UINT32* pDstSize);
+typedef INT32 (*pfnFreeRDPCodecAvc420Decompress)(H264_CONTEXT* h264, BYTE* pSrcData, UINT32 SrcSize,
+		BYTE* pDstData, DWORD DstFormat, UINT32 nDstStep,
+		UINT32 nDstWidth, UINT32 nDstHeight,
+		RECTANGLE_16* regionRects, UINT32 numRegionRects);
+typedef H264_CONTEXT* (*pfnFreeRDPCodecNew)(BOOL Compressor);
+typedef void (*pfnFreeRDPCodecFree)(H264_CONTEXT* h264);
+
+typedef BOOL (*pfnFreeRDPCodecInit)();
+typedef void (*pfnFreeRDPCodecUninit)();
+typedef BOOL (*pfnFreeRDPCodecIsSupport)(BOOL Compressor);
+typedef struct _FREERDP_CODEC_ENTRY_POINTS
+{
+	pfnFreeRDPCodecInit Init;
+	pfnFreeRDPCodecUninit Uninit;
+	pfnFreeRDPCodecIsSupport IsSupport;
+
+	pfnFreeRDPCodecNew New;
+	pfnFreeRDPCodecFree Free;
+	pfnFreeRDPCodecAvc420Compress Avc420Compress;
+	pfnFreeRDPCodecAvc420Decompress Avc420Decompress;
+
+} FREERDP_CODEC_ENTRY_POINTS;
+typedef FREERDP_CODEC_ENTRY_POINTS* (*pfnFreeRDPCodecGetEntry)();
+FREERDP_API void h264_codec_ext_set_entry(pfnFreeRDPCodecGetEntry pEntry);
+/* Define external codec */
+
+/* Dynamic load extern codec */
+static INLINE BOOL h264_codec_ext_try_load_entry(const char* libpath, bool compressor)
+{
+	void *handle;
+	pfnFreeRDPCodecGetEntry pFunc;
+	char *error;
+
+	handle = dlopen(libpath, RTLD_LAZY|RTLD_LOCAL);
+	if (!handle) {
+		fprintf(stderr, "%s\n", dlerror());
+		return FALSE;
+	}
+
+	dlerror();    /* Clear any existing error */
+
+	pFunc = (pfnFreeRDPCodecGetEntry)dlsym(handle, "FreeRDPCodecGetEntry");
+
+	if ((error = dlerror()) != NULL)  {
+		fprintf(stderr, "%s\n", error);
+		return FALSE;
+	}
+
+	FREERDP_CODEC_ENTRY_POINTS* pEntryPoints = (*pFunc)();
+
+	if (pEntryPoints && pEntryPoints->Init())
+	{
+		if (pEntryPoints->IsSupport(compressor))
+		{
+			h264_codec_ext_set_entry(pFunc);
+			return TRUE;
+		}
+		else
+		{
+			pEntryPoints->Uninit();
+		}
+	}
+
+	return FALSE;
+}
+/* Dynamic load extern codec */
 
 #ifdef __cplusplus
 }

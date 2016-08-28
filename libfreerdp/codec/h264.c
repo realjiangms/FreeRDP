@@ -28,9 +28,22 @@
 
 #include <freerdp/primitives.h>
 #include <freerdp/codec/h264.h>
+#include <freerdp/codec/color.h>
 #include <freerdp/log.h>
 
 #define TAG FREERDP_TAG("codec")
+
+static pfnFreeRDPCodecGetEntry pFreeRDPCodecExtGetEntry = NULL;
+void h264_codec_ext_set_entry(pfnFreeRDPCodecGetEntry pEntry)
+{
+	pFreeRDPCodecExtGetEntry = pEntry;
+}
+
+static FREERDP_CODEC_ENTRY_POINTS* FreeRDPCodecGetExt()
+{
+	if (pFreeRDPCodecExtGetEntry) return pFreeRDPCodecExtGetEntry();
+	return NULL;
+}
 
 /**
  * Dummy subsystem
@@ -1526,6 +1539,15 @@ INT32 avc420_decompress(H264_CONTEXT* h264, BYTE* pSrcData, UINT32 SrcSize,
                         UINT32 nDstWidth, UINT32 nDstHeight,
                         RECTANGLE_16* regionRects, UINT32 numRegionRects)
 {
+	/* First check if we are using h264 Extension */
+	if (h264->subsystem == NULL)
+	{
+		return FreeRDPCodecGetExt()->Avc420Decompress(h264, pSrcData, SrcSize,
+				pDstData, DstFormat, nDstStep,
+				nDstWidth, nDstHeight,
+				regionRects, numRegionRects);
+	}
+
 	int status;
 
 	if (!h264)
@@ -1550,6 +1572,14 @@ INT32 avc420_compress(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
                       UINT32 nSrcStep, UINT32 nSrcWidth, UINT32 nSrcHeight,
                       BYTE** ppDstData, UINT32* pDstSize)
 {
+	/* First check if we are using h264 Extension */
+	if (h264->subsystem == NULL)
+	{
+		return FreeRDPCodecGetExt()->Avc420Compress(h264, pSrcData, SrcFormat,
+				nSrcStep, nSrcWidth, nSrcHeight,
+				ppDstData, pDstSize);
+	}
+
 	int status = -1;
 	prim_size_t roi;
 	int nWidth, nHeight;
@@ -1584,8 +1614,19 @@ INT32 avc420_compress(H264_CONTEXT* h264, BYTE* pSrcData, DWORD SrcFormat,
 	iStride[2] = nWidth / 2;
 	roi.width = nSrcWidth;
 	roi.height = nSrcHeight;
-	prims->RGBToYUV420_8u_P3AC4R(pSrcData, SrcFormat, nSrcStep, pYUVData, iStride,
-	                             &roi);
+	if (SrcFormat == PIXEL_FORMAT_BGRX32)
+	{
+    	prims->RGBToYUV420_8u_P3AC4R(pSrcData, SrcFormat, nSrcStep, pYUVData, iStride,
+    	                             &roi);
+	}
+	else
+	{
+		CopyMemory(pYUVData[0], pSrcData, iStride[0] * nSrcHeight);
+		CopyMemory(pYUVData[1], &pSrcData[iStride[0] * nSrcHeight], iStride[1] * (nSrcHeight / 2));
+		CopyMemory(pYUVData[2], &pSrcData[iStride[0] * nSrcHeight + iStride[1] * (nSrcHeight / 2)],
+				iStride[2] * (nSrcHeight / 2));
+	}
+
 	status = h264->subsystem->Compress(h264, ppDstData, pDstSize, 0);
 	free(pYUVData[2]);
 	pYUVData[2] = NULL;
@@ -1864,7 +1905,7 @@ INT32 avc444_decompress(H264_CONTEXT* h264, BYTE op,
 	return status;
 }
 
-BOOL h264_context_init(H264_CONTEXT* h264)
+static BOOL h264_context_init(H264_CONTEXT* h264)
 {
 #if defined(_WIN32) && defined(WITH_MEDIA_FOUNDATION)
 
@@ -1919,6 +1960,15 @@ BOOL h264_context_reset(H264_CONTEXT* h264, UINT32 width, UINT32 height)
 H264_CONTEXT* h264_context_new(BOOL Compressor)
 {
 	H264_CONTEXT* h264;
+
+	/* First check if we can use h264 Extension */
+	FREERDP_CODEC_ENTRY_POINTS* entry = FreeRDPCodecGetExt();
+	if (entry && (h264 = entry->New(Compressor)))
+	{
+		h264->subsystem = NULL; /* Use external extension */
+		return h264;
+	}
+
 	h264 = (H264_CONTEXT*) calloc(1, sizeof(H264_CONTEXT));
 
 	if (h264)
@@ -1946,6 +1996,13 @@ void h264_context_free(H264_CONTEXT* h264)
 {
 	if (h264)
 	{
+		/* First check if we are using h264 Extension */
+		if (h264->subsystem == NULL)
+		{
+			FreeRDPCodecGetExt()->Free(h264);
+			return;
+		}
+
 		h264->subsystem->Uninit(h264);
 		free(h264->pYUV444Data[0]);
 		free(h264->pYUV444Data[1]);
