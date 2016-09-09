@@ -611,6 +611,9 @@ static UINT rdpsnd_recv_wave_pdu(rdpsndPlugin* rdpsnd, wStream* s)
 	RDPSND_WAVE* wave;
 	AUDIO_FORMAT* format;
 	UINT status;
+	/* Client is single threaded, ok for static */
+	static ULONGLONG flush = 0;
+	ULONGLONG current64 = 0;
 	rdpsnd->expectingWave = FALSE;
 	/**
 	 * The Wave PDU is a special case: it is always sent after a Wave Info PDU,
@@ -657,6 +660,8 @@ static UINT rdpsnd_recv_wave_pdu(rdpsndPlugin* rdpsnd, wStream* s)
 		return CHANNEL_RC_NO_MEMORY;
 	}
 
+	if (!flush)
+	{
 	if (rdpsnd->device->WavePlay)
 	{
 		IFCALL(rdpsnd->device->WavePlay, rdpsnd->device, wave);
@@ -664,6 +669,25 @@ static UINT rdpsnd_recv_wave_pdu(rdpsndPlugin* rdpsnd, wStream* s)
 	else
 	{
 		IFCALL(rdpsnd->device->Play, rdpsnd->device, data, size);
+	}
+	}
+	current64 = GetTickCount64();
+	if (MessageQueue_Size(rdpsnd->MsgPipe->In) > 3)
+	{
+		/* Enter flush mode if we have too many pending packet */
+		/* Drop packets in flush mode until empty queue and current sample played */
+		flush = current64 + wave->wAudioLength + TIME_DELAY_MS;
+		WLog_Print(rdpsnd->log, WLOG_WARN, "Flush");
+	}
+	else if (MessageQueue_Size(rdpsnd->MsgPipe->In) == 0 && 
+			(current64 >= flush || current64 + 10000 < flush))
+	{
+		/* Exit flush mode if all package flushed */
+		/* current64 >= flush: Check if current sample played. */
+		/* current64 + 10000 < flush: It is impossible to be 10s before due time, 
+		 * we might be over the 56372963526 years limit.
+		 */
+		flush = 0;
 	}
 
 	if (!rdpsnd->device->WavePlay)

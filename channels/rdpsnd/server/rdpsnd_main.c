@@ -534,7 +534,6 @@ static UINT rdpsnd_server_send_samples(RdpsndServerContext* context,
 	if (context->selected_client_format < 0)
 	{
 		/* It's possible while format negotiation has not been done */
-		WLog_WARN(TAG, "Drop samples because client format has not been negotiated.");
 		error = ERROR_NOT_READY;
 		goto out;
 	}
