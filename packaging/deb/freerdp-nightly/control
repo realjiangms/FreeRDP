@@ -1,7 +1,7 @@
 Source: freerdp-nightly
 Section: x11
 Priority: optional
-Maintainer: FreeRDP <team@freerdp.com>
+Maintainer: FreeRDP <team@freerdp.com> and Tayun <contact@itayun.com>
 Build-Depends:
  debhelper (>= 9),
  cdbs,
@@ -41,7 +41,7 @@ Build-Depends:
  libgstreamer1.0-dev | libgstreamer0.10-dev,
  libgstreamer-plugins-base1.0-dev | libgstreamer-plugins-base0.10-dev
 Standards-Version: 3.9.5
-Homepage: http://www.freerdp.com/
+Homepage: http://www.freerdp.com/,http://www.itayun.com/
 Vcs-Browser: http://github.com/FreeRDP/FreeRDP.git
 Vcs-Git: git://github.com/FreeRDP/FreeRDP.git
 
@@ -66,6 +66,7 @@ Description: RDP client for Windows Terminal Services (X11 client)
   * Windows 8
  .
  This package contains the X11 based client.
+ This package contains Tayun patched freerdp with openh264 and codec extension support.
 
 Package: freerdp-nightly-dev
 Section: libdevel

@@ -6,7 +6,7 @@
 # Bugs and comments https://github.com/FreeRDP/FreeRDP/issues
 
 
-%define   INSTALL_PREFIX /opt/freerdp-nightly/
+%define   INSTALL_PREFIX /usr/share/venusd
 Name:           freerdp-nightly
 Version:        2.0
 Release:        0
@@ -44,15 +44,15 @@ BuildRequires: pkg-config
 BuildRequires: libopenssl-devel
 BuildRequires: alsa-devel
 BuildRequires: libpulse-devel
-BuildRequires: libgsm-devel
+#BuildRequires: libgsm-devel
 BuildRequires: libusb-1_0-devel
 BuildRequires: libudev-devel
 BuildRequires: dbus-1-glib-devel
-BuildRequires: gstreamer-devel
-BuildRequires: gstreamer-plugins-base-devel
-BuildRequires: wayland-devel
-BuildRequires: libjpeg-devel
-BuildRequires: libavutil-devel
+#BuildRequires: gstreamer-devel
+#BuildRequires: gstreamer-plugins-base-devel
+#BuildRequires: wayland-devel
+#BuildRequires: libjpeg-devel
+#BuildRequires: libavutil-devel
 %endif
 # fedora 21+
 %if 0%{?fedora} >= 21
@@ -61,15 +61,15 @@ BuildRequires: libxslt
 BuildRequires: pkgconfig
 BuildRequires: openssl-devel
 BuildRequires: alsa-lib-devel
-BuildRequires: pulseaudio-libs-devel
-BuildRequires: gsm-devel
+#BuildRequires: pulseaudio-libs-devel
+#BuildRequires: gsm-devel
 BuildRequires: libusbx-devel
 BuildRequires: systemd-devel
 BuildRequires: dbus-glib-devel
-BuildRequires: gstreamer1-devel
-BuildRequires: gstreamer1-plugins-base-devel
-BuildRequires: libwayland-client-devel
-BuildRequires: libjpeg-turbo-devel
+#BuildRequires: gstreamer1-devel
+#BuildRequires: gstreamer1-plugins-base-devel
+#BuildRequires: libwayland-client-devel
+#BuildRequires: libjpeg-turbo-devel
 %endif 
 
 BuildRoot:      %{_tmppath}/%{name}-%{version}-build
@@ -77,6 +77,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-build
 %description
 FreeRDP is a open and free implementation of the Remote Desktop Protocol (RDP).
 This package provides nightly master builds of all components.
+This package contains Tayun patched freerdp with openh264 and codec extension support. See http://www.itayun.com
 
 %package devel
 Summary:        Development Files for %{name}
@@ -93,14 +94,15 @@ based on freerdp and winpr.
 %build
 %cmake  -DCMAKE_SKIP_RPATH=FALSE \
         -DCMAKE_SKIP_INSTALL_RPATH=FALSE \
-        -DWITH_PULSE=ON \
+        -DWITH_PULSE=OFF \
         -DWITH_CHANNELS=ON \
         -DBUILTIN_CHANNELS=ON \
-        -DWITH_CUPS=ON \
-        -DWITH_PCSC=ON \
-        -DWITH_JPEG=ON \
-        -DWITH_GSTREAMER_0_10=ON \
-        -DWITH_GSM=ON \
+        -DWITH_CUPS=OFF \
+        -DWITH_PCSC=OFF \
+        -DWITH_JPEG=OFF \
+        -DWITH_GSTREAMER_0_10=OFF \
+        -DWITH_GSTREAMER_1_0=OFF \
+        -DWITH_GSM=OFF \
         -DCHANNEL_URBDRC=ON \
         -DCHANNEL_URBDRC_CLIENT=ON \
         -DWITH_SERVER=ON \
@@ -110,6 +112,12 @@ based on freerdp and winpr.
 %if %{defined suse_version}
 	-DCMAKE_NO_BUILTIN_CHRPATH=ON \
 %endif
+        -DWITH_SSE2=ON \
+        -DCHANNEL_TSMF_SERVER=ON \
+        -DWITH_OPENH264=ON -DOPENH264_ROOT=%{INSTALL_PREFIX}/openh264 \
+        -DWITH_FFMPEG=OFF \
+        -DWITH_PAM=OFF \
+        -DWITH_SHADOW_X11=OFF \
         -DCMAKE_INSTALL_LIBDIR=%{_lib}
 
 make %{?_smp_mflags}
@@ -124,6 +132,7 @@ rm -rf $RPM_BUILD_ROOT
 make install DESTDIR=$RPM_BUILD_ROOT
 %endif 
 
+cp -rf %{INSTALL_PREFIX}/openh264 $RPM_BUILD_ROOT/%{INSTALL_PREFIX}
 find %{buildroot} -name "*.a" -delete
 export NO_BRP_CHECK_RPATH true
 
@@ -131,11 +140,13 @@ export NO_BRP_CHECK_RPATH true
 %defattr(-,root,root)
 %dir %{INSTALL_PREFIX}
 %dir %{INSTALL_PREFIX}/%{_lib}
+%dir %{INSTALL_PREFIX}/openh264
 %dir %{INSTALL_PREFIX}/bin
 %dir %{INSTALL_PREFIX}/share/
 %dir %{INSTALL_PREFIX}/share/man/
 %dir %{INSTALL_PREFIX}/share/man/man1
 %{INSTALL_PREFIX}/%{_lib}/*.so.*
+%{INSTALL_PREFIX}/openh264/
 %{INSTALL_PREFIX}/bin/
 %{INSTALL_PREFIX}/share/man/man1/xfreerdp.1*
 %{INSTALL_PREFIX}/share/man/man1/wlog.1*
