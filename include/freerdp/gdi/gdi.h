@@ -516,6 +516,7 @@ struct rdp_gdi
 	void (*free)(void*);
 
 	BOOL inGfxFrame;
+	BOOL needUpdate;
 	BOOL graphicsReset;
 	UINT16 outputSurfaceId;
 	REGION16 invalidRegion;

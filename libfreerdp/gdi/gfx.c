@@ -185,6 +185,7 @@ static UINT gdi_StartFrame(RdpgfxClientContext* context,
 {
 	rdpGdi* gdi = (rdpGdi*) context->custom;
 	gdi->inGfxFrame = TRUE;
+    gdi->needUpdate = TRUE;
 	return CHANNEL_RC_OK;
 }
 
@@ -198,8 +199,16 @@ static UINT gdi_EndFrame(RdpgfxClientContext* context,
 {
 	UINT status = CHANNEL_RC_NOT_INITIALIZED;
 	rdpGdi* gdi = (rdpGdi*) context->custom;
-	IFCALLRET(context->UpdateSurfaces, status, context);
+    if (gdi->needUpdate)
+    {
+        IFCALLRET(context->UpdateSurfaces, status, context);
+    }
+    else
+    {
+        status = CHANNEL_RC_OK;
+    }
 	gdi->inGfxFrame = FALSE;
+    gdi->needUpdate = FALSE;
 	return status;
 }
 
@@ -401,6 +410,12 @@ static UINT gdi_SurfaceCommand_AVC420(rdpGdi* gdi,
 		WLog_WARN(TAG, "avc420_decompress failure: %d, ignoring update.", status);
 		return CHANNEL_RC_OK;
 	}
+    else if (rc == 0)
+    {
+        // Async update
+        gdi->needUpdate = FALSE;
+        return CHANNEL_RC_OK;
+    }
 
 	for (i = 0; i < meta->numRegionRects; i++)
 	{

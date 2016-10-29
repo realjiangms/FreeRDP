@@ -223,6 +223,7 @@ static UINT xf_CreateSurface(RdpgfxClientContext* context,
 		return ERROR_INTERNAL_ERROR;
 	}
 
+	surface->gdi.codecs->h264->context = (void*)context;
 	surface->gdi.surfaceId = createSurface->surfaceId;
 	surface->gdi.width = (UINT32) createSurface->width;
 	surface->gdi.height = (UINT32) createSurface->height;
@@ -306,11 +307,12 @@ static UINT xf_DeleteSurface(RdpgfxClientContext* context,
 
 	if (surface)
 	{
+		codecs = surface->gdi.codecs;
+		codecs_free(codecs);
 		XFree(surface->image);
 		_aligned_free(surface->gdi.data);
 		_aligned_free(surface->stage);
 		region16_uninit(&surface->gdi.invalidRegion);
-		codecs = surface->gdi.codecs;
 		free(surface);
 	}
 
@@ -320,7 +322,6 @@ static UINT xf_DeleteSurface(RdpgfxClientContext* context,
 		progressive_delete_surface_context(codecs->progressive,
 		                                   deleteSurface->surfaceId);
 
-	codecs_free(codecs);
 	return CHANNEL_RC_OK;
 }
 

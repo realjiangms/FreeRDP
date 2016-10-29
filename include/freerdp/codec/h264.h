@@ -74,6 +74,8 @@ struct _H264_CONTEXT
 	UINT32 numSystemData;
 	void* pSystemData;
 	H264_CONTEXT_SUBSYSTEM* subsystem;
+
+    void* context; 
 };
 
 #ifdef __cplusplus
