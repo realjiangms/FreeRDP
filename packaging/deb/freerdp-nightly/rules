@@ -33,6 +33,9 @@ DEB_CMAKE_EXTRA_FLAGS :=  -DCMAKE_SKIP_RPATH=FALSE \
 %:
 	dh $@ --parallel
 
+override_dh_builddeb:
+	dh_builddeb -- -Zgzip
+
 override_dh_auto_configure:
 	echo $(DEB_CMAKE_EXTRA_FLAGS)
 	dh_auto_configure -- $(DEB_CMAKE_EXTRA_FLAGS)
